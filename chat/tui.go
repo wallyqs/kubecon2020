@@ -40,12 +40,12 @@ func (s *state) setupUI() tui.UI {
 	)
 	sidebar.SetBorder(true)
 
-	s.history = tui.NewGrid(4, 0)
+	s.msgs = tui.NewGrid(4, 0)
 
-	historyScroll := tui.NewScrollArea(s.history)
-	historyScroll.SetAutoscrollToBottom(true)
-	historyBox := tui.NewVBox(historyScroll)
-	historyBox.SetBorder(true)
+	msgsScroll := tui.NewScrollArea(s.msgs)
+	msgsScroll.SetAutoscrollToBottom(true)
+	msgsBox := tui.NewVBox(msgsScroll)
+	msgsBox.SetBorder(true)
 
 	input := tui.NewEntry()
 	input.SetSizePolicy(tui.Expanding, tui.Maximum)
@@ -54,7 +54,7 @@ func (s *state) setupUI() tui.UI {
 	inputBox.SetBorder(true)
 	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
 
-	chat := tui.NewVBox(historyBox, inputBox)
+	chat := tui.NewVBox(msgsBox, inputBox)
 	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
 
 	input.OnSubmit(func(e *tui.Entry) {
@@ -64,7 +64,7 @@ func (s *state) setupUI() tui.UI {
 			defer s.Unlock()
 			s.addPostToCurrent(p)
 			s.sendPost(p)
-			s.history.AppendRow(postEntry(p))
+			s.msgs.AppendRow(postEntry(p))
 			e.SetText("")
 		}
 	})

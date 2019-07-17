@@ -38,13 +38,13 @@ const (
 // This will setup our subscriptions for the chat service.
 func (s *state) setupNATS(nc *nats.Conn, creds, name string) {
 	s.nc = nc
-	s.uc, s.kp = loadUser(creds)
+	s.me, s.skp = loadUser(creds)
 
 	// Allow override
 	if name != "" {
 		s.name = displayName(name)
 	} else {
-		s.name = displayName(s.uc.Name)
+		s.name = displayName(s.me.Name)
 	}
 
 	// Listen for new posts, direct msgs.
@@ -53,7 +53,7 @@ func (s *state) setupNATS(nc *nats.Conn, creds, name string) {
 	}
 
 	// Only listen for DMs for us.
-	dmsSub := fmt.Sprintf(dmsPub, s.uc.Subject)
+	dmsSub := fmt.Sprintf(dmsPub, s.me.Subject)
 	if _, err := nc.Subscribe(dmsSub, s.processNewDM); err != nil {
 		log.Fatalf("Could not subscribe to new DMs: %v", err)
 	}
@@ -67,7 +67,7 @@ func (s *state) setupNATS(nc *nats.Conn, creds, name string) {
 	s.sendFirstOnlineStatus()
 
 	// Show ourselves on the DM list.
-	s.addNewUser(s.name, s.uc.Subject)
+	s.addNewUser(s.name, s.me.Subject)
 }
 
 const maxNameLen = 8
@@ -89,14 +89,14 @@ func (s *state) sendOnlineStatusUpdate() {
 }
 
 func (s *state) sendOnlineStatus(first bool) {
-	online := jwt.NewGenericClaims(s.uc.Subject)
+	online := jwt.NewGenericClaims(s.me.Subject)
 	online.Name = s.name
 	online.Expires = time.Now().Add(onlineInterval).UTC().Unix() // 30 seconds from now
 	online.Type = jwt.ClaimType("ngs-chat-online")
 	if first {
 		online.Tags.Add("new")
 	}
-	ojwt, _ := online.Encode(s.kp)
+	ojwt, _ := online.Encode(s.skp)
 	s.nc.Publish(onlineSub, []byte(ojwt))
 
 	// Send periodically while running.
@@ -155,7 +155,7 @@ func (s *state) sendPost(p *post) {
 		newPost.Type = jwt.ClaimType("ngs-chat-post")
 	}
 
-	pjwt, _ := newPost.Encode(s.kp)
+	pjwt, _ := newPost.Encode(s.skp)
 	s.nc.Publish(subj, []byte(pjwt))
 }
 
@@ -189,7 +189,7 @@ func (s *state) processNewPost(m *nats.Msg) {
 
 	if s.cur.kind == channel && s.cur.name == postClaim.Subject {
 		s.ui.Update(func() {
-			s.history.AppendRow(postEntry(p))
+			s.msgs.AppendRow(postEntry(p))
 		})
 	}
 }
@@ -216,7 +216,7 @@ func (s *state) processNewDM(m *nats.Msg) {
 	// Update display if we are currently being viewed.
 	if s.cur.kind == direct && s.cur.name == u.name {
 		s.ui.Update(func() {
-			s.history.AppendRow(postEntry(p))
+			s.msgs.AppendRow(postEntry(p))
 		})
 	}
 }

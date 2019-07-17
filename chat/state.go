@@ -14,6 +14,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -26,16 +27,18 @@ import (
 
 type state struct {
 	sync.Mutex
-	nc       *nats.Conn
-	uc       *jwt.UserClaims
-	kp       nkeys.KeyPair
-	name     string
-	posts    map[string][]*post
-	dms      map[string]*user
-	users    map[string]*user
-	cur      *selection
-	ui       tui.UI
-	history  *tui.Grid
+	nc    *nats.Conn
+	me    *jwt.UserClaims
+	skp   nkeys.KeyPair
+	name  string
+	posts map[string][]*post
+	dms   map[string]*user
+	users map[string]*user
+	cur   *selection
+	ui    tui.UI
+
+	// UI Items
+	msgs     *tui.Grid
 	channels *tui.List
 	direct   *tui.List
 }
@@ -125,7 +128,7 @@ func (s *state) addPostToCurrent(p *post) {
 
 func (s *state) setPostsDisplay(sel *selection) {
 	s.cur = sel
-	s.history.RemoveRows()
+	s.msgs.RemoveRows()
 	var posts []*post
 	switch sel.kind {
 	case channel:
@@ -138,7 +141,7 @@ func (s *state) setPostsDisplay(sel *selection) {
 		s.channels.SetSelected(-1)
 	}
 	for _, p := range posts {
-		s.history.AppendRow(postEntry(p))
+		s.msgs.AppendRow(postEntry(p))
 	}
 }
 
@@ -164,9 +167,17 @@ func (s *state) addNewUser(name, nkey string) *user {
 	if du == nil {
 		s.dms[u.name] = u
 	} else {
-		// We have a collision here.
-		// FIXME(dlc) - do derek(2), derek(3) etc.
-		log.Printf("We have a collision on display names for %q", name)
+		// We have a collision here. e.g. chose the same simple name.
+		// Attempt to find a new one in form name(2), name(3).
+		for i := 2; i < 10002; i++ {
+			u.name = fmt.Sprintf("%s(%d)", name, i)
+			du := s.dms[u.name]
+			if du == nil {
+				s.dms[u.name] = u
+				return u
+			}
+		}
+		log.Fatalf("Name collision error, alternatives exhausted")
 	}
 	return u
 }

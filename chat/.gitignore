@@ -1,0 +1,13 @@
+*.creds
+*.conf
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Mac
+.DS_Store
+
+# bin
+chat
