@@ -1,4 +1,4 @@
-module github.com/connecteverything/oscon2019/ngs-chat-access
+module github.com/connecteverything/oscon2019/chat-access
 
 go 1.12
 
