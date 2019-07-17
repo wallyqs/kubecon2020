@@ -26,7 +26,7 @@ func (s *state) setupUI() tui.UI {
 	s.channels.AddItems(dName("OSCON"), dName("NATS"), dName("General"))
 
 	s.direct = tui.NewList()
-	for name, _ := range s.dms {
+	for name := range s.dms {
 		s.direct.AddItems(dName(name))
 	}
 
@@ -59,12 +59,11 @@ func (s *state) setupUI() tui.UI {
 
 	input.OnSubmit(func(e *tui.Entry) {
 		if m := e.Text(); m != "" {
-			p := &post{user: s.name, msg: m, time: time.Now().Format("15:04")}
 			s.Lock()
-			defer s.Unlock()
+			p := s.sendPost(m)
 			s.addPostToCurrent(p)
-			s.sendPost(p)
-			s.msgs.AppendRow(postEntry(p))
+			s.msgs.AppendRow(s.postEntry(p))
+			s.Unlock()
 			e.SetText("")
 		}
 	})
@@ -150,11 +149,24 @@ func (s *state) setupUI() tui.UI {
 func postUser(u string) string {
 	return fmt.Sprintf("%-8s", "<"+u+">")
 }
-func postEntry(p *post) tui.Widget {
+
+// Assumes lock is held. This is to lookup local name
+// which we may have changed due to collisions.
+func (s *state) localUserName(p *postClaim) string {
+	u := s.users[p.Issuer]
+	if u == nil {
+		return p.Name
+	}
+	return u.name
+}
+
+func (s *state) postEntry(p *postClaim) tui.Widget {
+	t := time.Unix(p.IssuedAt, 0)
+	n := s.localUserName(p)
 	return tui.NewHBox(
-		tui.NewLabel(p.time),
-		tui.NewPadder(1, 0, tui.NewLabel(postUser(p.user))),
-		tui.NewLabel(p.msg),
+		tui.NewLabel(t.Format("15:04")),
+		tui.NewPadder(1, 0, tui.NewLabel(postUser(n))),
+		tui.NewLabel(p.Data["msg"].(string)),
 		tui.NewSpacer(),
 	)
 }

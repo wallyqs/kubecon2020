@@ -74,11 +74,15 @@ const maxNameLen = 8
 
 func displayName(name string) string {
 	fname := strings.Split(name, " ")[0]
-	return strings.ToLower(fname)
+	fname = strings.ToLower(fname)
+	if len(fname) > maxNameLen {
+		fname = fname[:maxNameLen]
+	}
+	return fname
 }
 
 const (
-	onlineInterval = 30 * time.Second
+	onlineInterval = 1 * time.Minute
 )
 
 func (s *state) sendFirstOnlineStatus() {
@@ -91,7 +95,7 @@ func (s *state) sendOnlineStatusUpdate() {
 func (s *state) sendOnlineStatus(first bool) {
 	online := jwt.NewGenericClaims(s.me.Subject)
 	online.Name = s.name
-	online.Expires = time.Now().Add(onlineInterval).UTC().Unix() // 30 seconds from now
+	online.Expires = time.Now().Add(onlineInterval).UTC().Unix() // 1 minute from now
 	online.Type = jwt.ClaimType("ngs-chat-online")
 	if first {
 		online.Tags.Add("new")
@@ -100,19 +104,19 @@ func (s *state) sendOnlineStatus(first bool) {
 	s.nc.Publish(onlineSub, []byte(ojwt))
 
 	// Send periodically while running.
-	time.AfterFunc(onlineInterval/3, s.sendOnlineStatusUpdate)
+	time.AfterFunc(onlineInterval/2, s.sendOnlineStatusUpdate)
 }
 
 func (s *state) processUserUpdate(m *nats.Msg) {
 	userClaim, err := jwt.DecodeGeneric(string(m.Data))
 	if err != nil {
-		log.Printf("Received a bad user update: %v", err)
+		log.Printf("-ERR Received a bad user update: %v", err)
 		return
 	}
 	vr := jwt.CreateValidationResults()
 	userClaim.Validate(vr)
 	if vr.IsBlocking(true) {
-		log.Printf("Blocking issues for user update:%+v", vr)
+		log.Printf("-ERR Blocking issues for user update:%+v", vr)
 		return
 	}
 
@@ -134,70 +138,64 @@ func (s *state) processUserUpdate(m *nats.Msg) {
 	}
 }
 
-// Called when we send a channel post
-func (s *state) sendPost(p *post) {
-	if s.cur == nil {
-		log.Fatalf("Post with no current channel")
-	}
-
-	newPost := jwt.NewGenericClaims(s.cur.name)
-	newPost.Name = s.name
-	newPost.Data["msg"] = p.msg
-
+func (s *state) postSubject() string {
 	var subj string
 	if s.cur.kind == direct {
 		if u := s.dms[s.cur.name]; u != nil {
 			subj = fmt.Sprintf(dmsPub, u.nkey)
 		}
-		newPost.Type = jwt.ClaimType("ngs-chat-dm")
 	} else {
 		subj = fmt.Sprintf(postsPub, s.cur.name)
-		newPost.Type = jwt.ClaimType("ngs-chat-post")
 	}
-
-	pjwt, _ := newPost.Encode(s.skp)
-	s.nc.Publish(subj, []byte(pjwt))
+	return subj
 }
 
-func checkPostClaim(claim string) *jwt.GenericClaims {
-	postClaim, err := jwt.DecodeGeneric(claim)
+// Called when we send a channel post
+func (s *state) sendPost(m string) *postClaim {
+	newPost := s.newPost(m)
+	pjwt, _ := newPost.Encode(s.skp)
+	s.nc.Publish(s.postSubject(), []byte(pjwt))
+	return newPost
+}
+
+func checkPostClaim(claim string) *postClaim {
+	post, err := jwt.DecodeGeneric(claim)
 	if err != nil {
-		log.Printf("Received a bad post: %v", err)
+		log.Printf("-ERR Received a bad post: %v", err)
 		return nil
 	}
 	vr := jwt.CreateValidationResults()
-	postClaim.Validate(vr)
+	post.Validate(vr)
 	if vr.IsBlocking(true) {
-		log.Printf("Blocking issues for post:%+v", vr)
+		log.Printf("-ERR Blocking issues for post:%+v", vr)
 		return nil
 	}
-	return postClaim
+	return &postClaim{post}
 }
 
 // Receive a new channel post from another user.
 func (s *state) processNewPost(m *nats.Msg) {
-	postClaim := checkPostClaim(string(m.Data))
-	if postClaim == nil || s.posts[postClaim.Subject] == nil {
+	post := checkPostClaim(string(m.Data))
+	if post == nil || s.posts[post.Subject] == nil {
 		return
 	}
 
 	s.Lock()
 	defer s.Unlock()
 
-	p := &post{user: postClaim.Name, msg: postClaim.Data["msg"].(string), time: time.Now().Format("15:04")}
-	s.posts[postClaim.Subject] = append(s.posts[postClaim.Subject], p)
+	s.posts[post.Subject] = append(s.posts[post.Subject], post)
 
-	if s.cur.kind == channel && s.cur.name == postClaim.Subject {
+	if s.cur.kind == channel && s.cur.name == post.Subject {
 		s.ui.Update(func() {
-			s.msgs.AppendRow(postEntry(p))
+			s.msgs.AppendRow(s.postEntry(post))
 		})
 	}
 }
 
 // Receive a new channel post from another user.
 func (s *state) processNewDM(m *nats.Msg) {
-	postClaim := checkPostClaim(string(m.Data))
-	if postClaim == nil {
+	post := checkPostClaim(string(m.Data))
+	if post == nil {
 		return
 	}
 
@@ -205,18 +203,16 @@ func (s *state) processNewDM(m *nats.Msg) {
 	defer s.Unlock()
 
 	// We don't allow DMs from new users. We should know the user already.
-	u := s.users[postClaim.Issuer]
+	u := s.users[post.Issuer]
 	if u == nil {
 		return
 	}
-	p := &post{user: u.name, msg: postClaim.Data["msg"].(string), time: time.Now().Format("15:04")}
-
-	u.posts = append(u.posts, p)
+	u.posts = append(u.posts, post)
 
 	// Update display if we are currently being viewed.
 	if s.cur.kind == direct && s.cur.name == u.name {
 		s.ui.Update(func() {
-			s.msgs.AppendRow(postEntry(p))
+			s.msgs.AppendRow(s.postEntry(post))
 		})
 	}
 }

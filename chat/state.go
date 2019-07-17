@@ -31,7 +31,7 @@ type state struct {
 	me    *jwt.UserClaims
 	skp   nkeys.KeyPair
 	name  string
-	posts map[string][]*post
+	posts map[string][]*postClaim
 	dms   map[string]*user
 	users map[string]*user
 	cur   *selection
@@ -46,14 +46,8 @@ type state struct {
 type user struct {
 	name  string
 	nkey  string
-	posts []*post
+	posts []*postClaim
 	last  time.Time
-}
-
-type post struct {
-	user string
-	msg  string
-	time string
 }
 
 type pkind int
@@ -69,19 +63,31 @@ type selection struct {
 	kind  pkind
 }
 
-// For testing
-func (s *state) pre() {
-	now := time.Now()
-	s.posts["OSCON"] = []*post{
-		{user: "derek", msg: "Hello Portland!", time: now.Add(-time.Hour).Format("15:04")},
-		{user: "wally", msg: "Welcome to OSCON 2019", time: now.Format("15:04")},
+type postClaim struct {
+	*jwt.GenericClaims
+}
+
+func (s *state) newPost(msg string) *postClaim {
+	newPost := &postClaim{jwt.NewGenericClaims(s.cur.name)}
+	newPost.Name = s.name
+	newPost.Data["msg"] = msg
+	if s.cur.kind == direct {
+		newPost.Type = jwt.ClaimType("ngs-chat-dm")
+	} else {
+		newPost.Type = jwt.ClaimType("ngs-chat-post")
 	}
-	s.posts["NATS"] = []*post{}
-	s.posts["General"] = []*post{}
+	return newPost
+}
+
+// Fixed channels for now. Not hard to allow creating new ones.
+func (s *state) pre() {
+	s.posts["OSCON"] = []*postClaim{}
+	s.posts["NATS"] = []*postClaim{}
+	s.posts["General"] = []*postClaim{}
 }
 
 func newState() *state {
-	s := &state{posts: make(map[string][]*post), dms: make(map[string]*user), users: make(map[string]*user)}
+	s := &state{posts: make(map[string][]*postClaim), dms: make(map[string]*user), users: make(map[string]*user)}
 	s.pre()
 	return s
 }
@@ -116,7 +122,7 @@ func (s *state) dmSel() *selection {
 	}
 }
 
-func (s *state) addPostToCurrent(p *post) {
+func (s *state) addPostToCurrent(p *postClaim) {
 	switch s.cur.kind {
 	case channel:
 		s.posts[s.cur.name] = append(s.posts[s.cur.name], p)
@@ -126,10 +132,11 @@ func (s *state) addPostToCurrent(p *post) {
 	}
 }
 
+// Assume lock is held
 func (s *state) setPostsDisplay(sel *selection) {
 	s.cur = sel
 	s.msgs.RemoveRows()
-	var posts []*post
+	var posts []*postClaim
 	switch sel.kind {
 	case channel:
 		posts = s.posts[sel.name]
@@ -141,7 +148,7 @@ func (s *state) setPostsDisplay(sel *selection) {
 		s.channels.SetSelected(-1)
 	}
 	for _, p := range posts {
-		s.msgs.AppendRow(postEntry(p))
+		s.msgs.AppendRow(s.postEntry(p))
 	}
 }
 
