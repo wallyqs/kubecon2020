@@ -34,6 +34,7 @@ type state struct {
 	posts map[string][]*postClaim
 	dms   map[string]*user
 	users map[string]*user
+	dd    map[string]struct{}
 	cur   *selection
 	ui    tui.UI
 
@@ -67,6 +68,24 @@ type postClaim struct {
 	*jwt.GenericClaims
 }
 
+// Fixed channels for now. Not hard to allow creating new ones.
+func (s *state) pre() {
+	s.posts["OSCON"] = []*postClaim{}
+	s.posts["NATS"] = []*postClaim{}
+	s.posts["General"] = []*postClaim{}
+}
+
+func newState() *state {
+	s := &state{
+		posts: make(map[string][]*postClaim),
+		dms:   make(map[string]*user),
+		users: make(map[string]*user),
+		dd:    make(map[string]struct{}),
+	}
+	s.pre()
+	return s
+}
+
 func (s *state) newPost(msg string) *postClaim {
 	newPost := &postClaim{jwt.NewGenericClaims(s.cur.name)}
 	newPost.Name = s.name
@@ -77,19 +96,6 @@ func (s *state) newPost(msg string) *postClaim {
 		newPost.Type = jwt.ClaimType("ngs-chat-post")
 	}
 	return newPost
-}
-
-// Fixed channels for now. Not hard to allow creating new ones.
-func (s *state) pre() {
-	s.posts["OSCON"] = []*postClaim{}
-	s.posts["NATS"] = []*postClaim{}
-	s.posts["General"] = []*postClaim{}
-}
-
-func newState() *state {
-	s := &state{posts: make(map[string][]*postClaim), dms: make(map[string]*user), users: make(map[string]*user)}
-	s.pre()
-	return s
 }
 
 func (s *state) selectFirstChannel() {
@@ -187,4 +193,19 @@ func (s *state) addNewUser(name, nkey string) *user {
 		log.Fatalf("Name collision error, alternatives exhausted")
 	}
 	return u
+}
+
+// Assume lock is held.
+// FIXME(dlc) - make this and posts bound.
+func (s *state) postIsDupe(jti string) bool {
+	if _, ok := s.dd[jti]; ok {
+		return true
+	}
+	s.registerPost(jti)
+	return false
+}
+
+// Assume lock is held.
+func (s *state) registerPost(jti string) {
+	s.dd[jti] = struct{}{}
 }

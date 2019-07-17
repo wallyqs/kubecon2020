@@ -154,6 +154,7 @@ func (s *state) postSubject() string {
 func (s *state) sendPost(m string) *postClaim {
 	newPost := s.newPost(m)
 	pjwt, _ := newPost.Encode(s.skp)
+	s.registerPost(newPost.ID)
 	s.nc.Publish(s.postSubject(), []byte(pjwt))
 	return newPost
 }
@@ -183,6 +184,9 @@ func (s *state) processNewPost(m *nats.Msg) {
 	s.Lock()
 	defer s.Unlock()
 
+	if s.postIsDupe(post.ID) {
+		return
+	}
 	s.posts[post.Subject] = append(s.posts[post.Subject], post)
 
 	if s.cur.kind == channel && s.cur.name == post.Subject {
