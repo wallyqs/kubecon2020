@@ -203,10 +203,14 @@ func (s *state) localUserName(p *postClaim) string {
 func (s *state) postEntry(p *postClaim) tui.Widget {
 	t := time.Unix(p.IssuedAt, 0)
 	n := s.localUserName(p)
+
+	msgLabel := tui.NewLabel(p.Data["msg"].(string))
+	msgLabel.SetWordWrap(true)
+
 	return tui.NewHBox(
 		tui.NewLabel(t.Format("15:04")),
 		tui.NewPadder(1, 0, tui.NewLabel(postUser(n))),
-		tui.NewLabel(p.Data["msg"].(string)),
+		msgLabel,
 		tui.NewSpacer(),
 	)
 }
