@@ -223,7 +223,7 @@ func (s *state) processNewDM(m *nats.Msg) {
 		})
 	} else {
 		ui.Update(func() {
-			s.updateNewMsgState(u.name, true)
+			s.updateNewMsgState(u.nkey, true)
 		})
 	}
 }

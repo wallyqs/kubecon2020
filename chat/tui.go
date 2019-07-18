@@ -132,7 +132,7 @@ func (s *state) setupUI() tui.UI {
 }
 
 // Lock should not be held.
-func (s *state) updateNewMsgState(uname string, on bool) {
+func (s *state) updateNewMsgState(nkey string, on bool) {
 	s.Lock()
 	directL := s.direct
 	users := s.userListSorted()
@@ -142,7 +142,7 @@ func (s *state) updateNewMsgState(uname string, on bool) {
 
 	for _, user := range users {
 		name := dName(user)
-		if strings.Contains(uname, user.name) {
+		if nkey == user.nkey {
 			if on {
 				if !strings.HasSuffix(name, highlighted) {
 					name = name + highlighted
@@ -178,14 +178,16 @@ func (s *state) dmSelChanged(l *tui.List) {
 		s.channels.SetSelected(-1)
 		if strings.HasSuffix(s.direct.SelectedItem(), highlighted) {
 			s.Unlock()
-			s.updateNewMsgState(s.cur.name, false)
+			if u := s.dms[s.cur.name]; u != nil {
+				s.updateNewMsgState(u.nkey, false)
+			}
 			s.Lock()
 		}
 	}
 }
 
 func postUser(u string) string {
-	return fmt.Sprintf("%-8s", "<"+u+">")
+	return fmt.Sprintf("%-9s", "<"+u+">")
 }
 
 // Assumes lock is held. This is to lookup local name
