@@ -47,17 +47,17 @@ func (s *state) setupUI() tui.UI {
 	msgsBox := tui.NewVBox(msgsScroll)
 	msgsBox.SetBorder(true)
 
-	input := tui.NewEntry()
-	input.SetSizePolicy(tui.Expanding, tui.Maximum)
+	s.input = tui.NewEntry()
+	s.input.SetSizePolicy(tui.Expanding, tui.Maximum)
 
-	inputBox := tui.NewHBox(input)
+	inputBox := tui.NewHBox(s.input)
 	inputBox.SetBorder(true)
 	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
 
 	chat := tui.NewVBox(msgsBox, inputBox)
 	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
 
-	input.OnSubmit(func(e *tui.Entry) {
+	s.input.OnSubmit(func(e *tui.Entry) {
 		if m := e.Text(); m != "" {
 			s.Lock()
 			p := s.sendPost(m)
@@ -75,11 +75,11 @@ func (s *state) setupUI() tui.UI {
 		log.Fatal(err)
 	}
 
-	input.SetFocused(true)
+	s.input.SetFocused(true)
 
 	s.channels.OnItemActivated(func(l *tui.List) {
 		s.channels.SetFocused(false)
-		input.SetFocused(true)
+		s.input.SetFocused(true)
 	})
 	s.channels.OnSelectionChanged(func(l *tui.List) {
 		s.Lock()
@@ -99,7 +99,7 @@ func (s *state) setupUI() tui.UI {
 
 	s.direct.OnItemActivated(func(l *tui.List) {
 		s.direct.SetFocused(false)
-		input.SetFocused(true)
+		s.input.SetFocused(true)
 	})
 	s.direct.OnSelectionChanged(func(l *tui.List) {
 		s.Lock()
@@ -126,8 +126,8 @@ func (s *state) setupUI() tui.UI {
 	ui.SetKeybinding("TAB", func() {
 		s.Lock()
 		defer s.Unlock()
-		if input.IsFocused() {
-			input.SetFocused(false)
+		if s.input.IsFocused() {
+			s.input.SetFocused(false)
 			if s.cur == nil || s.cur.kind == channel {
 				s.direct.SetFocused(false)
 				s.channels.SetFocused(true)
@@ -138,7 +138,7 @@ func (s *state) setupUI() tui.UI {
 		} else {
 			s.channels.SetFocused(false)
 			s.direct.SetFocused(false)
-			input.SetFocused(true)
+			s.input.SetFocused(true)
 		}
 	})
 

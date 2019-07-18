@@ -17,6 +17,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -45,6 +46,9 @@ func main() {
 		showUsageAndExit(1)
 	}
 
+	// Initialize our state
+	s := newState(*userCreds)
+
 	// Connect to NATS system
 	log.Print("Connecting to NATS system")
 	opts := []nats.Option{nats.Name("OSCON Chat")}
@@ -58,9 +62,6 @@ func main() {
 	}
 	defer nc.Close()
 
-	// Initialize our state
-	s := newState()
-
 	// Setup NATS and announce ourselves.
 	s.setupNATS(nc, *userCreds, *name)
 
@@ -69,6 +70,15 @@ func main() {
 
 	// Ctrl-C to exit.
 	ui.SetKeybinding("Ctrl+C", func() { ui.Quit() })
+
+	// Setup expiration timer if the user expires.
+	if s.me.Expires > 0 {
+		expiresInSecs := time.Duration(s.me.Expires - time.Now().Unix())
+		time.AfterFunc(time.Second*expiresInSecs, func() {
+			ui.Quit()
+			log.Fatalf("Your credentials have expired.")
+		})
+	}
 
 	// Loop on UI.
 	if err := ui.Run(); err != nil {

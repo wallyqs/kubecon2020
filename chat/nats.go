@@ -38,7 +38,6 @@ const (
 // This will setup our subscriptions for the chat service.
 func (s *state) setupNATS(nc *nats.Conn, creds, name string) {
 	s.nc = nc
-	s.me, s.skp = loadUser(creds)
 
 	// Allow override
 	if name != "" {
@@ -110,13 +109,13 @@ func (s *state) sendOnlineStatus(first bool) {
 func (s *state) processUserUpdate(m *nats.Msg) {
 	userClaim, err := jwt.DecodeGeneric(string(m.Data))
 	if err != nil {
-		log.Printf("-ERR Received a bad user update: %v", err)
+		s.logErr("-ERR Received a bad user update: %v", err)
 		return
 	}
 	vr := jwt.CreateValidationResults()
 	userClaim.Validate(vr)
 	if vr.IsBlocking(true) {
-		log.Printf("-ERR Blocking issues for user update:%+v", vr)
+		s.logErr("-ERR Blocking issues for user update:%+v", vr)
 		return
 	}
 
@@ -159,16 +158,16 @@ func (s *state) sendPost(m string) *postClaim {
 	return newPost
 }
 
-func checkPostClaim(claim string) *postClaim {
+func (s *state) checkPostClaim(claim string) *postClaim {
 	post, err := jwt.DecodeGeneric(claim)
 	if err != nil {
-		log.Printf("-ERR Received a bad post: %v", err)
+		s.logErr("-ERR Received a bad post: %v", err)
 		return nil
 	}
 	vr := jwt.CreateValidationResults()
 	post.Validate(vr)
 	if vr.IsBlocking(true) {
-		log.Printf("-ERR Blocking issues for post:%+v", vr)
+		s.logErr("-ERR Blocking issues for post:%+v", vr)
 		return nil
 	}
 	return &postClaim{post}
@@ -176,7 +175,7 @@ func checkPostClaim(claim string) *postClaim {
 
 // Receive a new channel post from another user.
 func (s *state) processNewPost(m *nats.Msg) {
-	post := checkPostClaim(string(m.Data))
+	post := s.checkPostClaim(string(m.Data))
 	if post == nil || s.posts[post.Subject] == nil {
 		return
 	}
@@ -198,7 +197,7 @@ func (s *state) processNewPost(m *nats.Msg) {
 
 // Receive a new channel post from another user.
 func (s *state) processNewDM(m *nats.Msg) {
-	post := checkPostClaim(string(m.Data))
+	post := s.checkPostClaim(string(m.Data))
 	if post == nil {
 		return
 	}
@@ -218,6 +217,13 @@ func (s *state) processNewDM(m *nats.Msg) {
 		s.ui.Update(func() {
 			s.msgs.AppendRow(s.postEntry(post))
 		})
+	}
+}
+
+// Lock should be held.
+func (s *state) logErr(format string, args ...interface{}) {
+	if s.input.IsFocused() {
+		log.Printf(format, args...)
 	}
 }
 
@@ -247,6 +253,11 @@ func loadUser(creds string) (*jwt.UserClaims, nkeys.KeyPair) {
 	if err != nil {
 		log.Fatalf("Could not decode user: %v", err)
 	}
+	// Check if we have expired.
+	if uc.Expires > 0 && uc.Expires < time.Now().UTC().Unix() {
+		log.Fatalf("I'm sorry, credentials have expired.")
+	}
+
 	return uc, kp
 }
 

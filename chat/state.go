@@ -42,6 +42,7 @@ type state struct {
 	msgs     *tui.Grid
 	channels *tui.List
 	direct   *tui.List
+	input    *tui.Entry
 }
 
 type user struct {
@@ -75,7 +76,7 @@ func (s *state) pre() {
 	s.posts["General"] = []*postClaim{}
 }
 
-func newState() *state {
+func newState(creds string) *state {
 	s := &state{
 		posts: make(map[string][]*postClaim),
 		dms:   make(map[string]*user),
@@ -83,6 +84,7 @@ func newState() *state {
 		dd:    make(map[string]struct{}),
 	}
 	s.pre()
+	s.me, s.skp = loadUser(creds)
 	return s
 }
 
