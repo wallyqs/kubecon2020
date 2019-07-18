@@ -16,18 +16,24 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 
 	"github.com/nats-io/nats.go"
 )
 
 func usage() {
-	log.Printf("Usage: ngs-chat [-s server] [-creds file]\n")
+	log.Printf("Usage: chat [-s server] [-creds file] [-n name]\n")
 	flag.PrintDefaults()
+}
+
+func showUsageAndExit(exitcode int) {
+	usage()
+	os.Exit(exitcode)
 }
 
 func main() {
 	var server = flag.String("s", "connect.ngs.global", "NATS System")
-	var name = flag.String("n", "", "Chat Name")
+	var name = flag.String("n", "", "Override Chat Name")
 	var userCreds = flag.String("creds", "", "User Credentials File")
 
 	log.SetFlags(0)
@@ -36,12 +42,12 @@ func main() {
 
 	// Use UserCredentials
 	if *userCreds == "" {
-		log.Fatalf("NGS Chat requires user credentials file")
+		showUsageAndExit(1)
 	}
 
 	// Connect to NATS system
 	log.Print("Connecting to NATS system")
-	opts := []nats.Option{nats.Name("OSCON NGS-Chat")}
+	opts := []nats.Option{nats.Name("OSCON Chat")}
 	opts = setupConnOptions(opts)
 	opts = append(opts, nats.UserCredentials(*userCreds))
 

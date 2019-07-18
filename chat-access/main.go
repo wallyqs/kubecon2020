@@ -29,7 +29,7 @@ import (
 )
 
 func usage() {
-	log.Printf("Usage: ngs-chat-access [-s server] [-acc acc-jwt-file] [-sk signing-key-file]\n")
+	log.Printf("Usage: chat-access [-s server] [-acc acc-jwt-file] [-sk signing-key-file]\n")
 }
 
 func showUsageAndExit(exitcode int) {
@@ -57,7 +57,7 @@ func main() {
 		showUsageAndExit(1)
 	}
 
-	opts := []nats.Option{nats.Name("OSCON NGS-Chat-Access")}
+	opts := []nats.Option{nats.Name("OSCON Chat-Access")}
 	opts = setupConnOptions(opts)
 	if *appCreds != "" {
 		opts = append(opts, nats.UserCredentials(*appCreds))
