@@ -16,6 +16,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +51,8 @@ type user struct {
 	nkey  string
 	posts []*postClaim
 	last  time.Time
+	disp  int
+	nmsgs bool
 }
 
 type pkind int
@@ -107,12 +110,27 @@ func (s *state) selectFirstChannel() {
 
 const lpre = " - "
 
-func dName(name string) string {
+func chName(name string) string {
 	return lpre + name
 }
 
+func dName(u *user) string {
+	name := lpre + u.name
+	if u.nmsgs {
+		name = name + highlighted
+	}
+	return name
+}
+
+const highlighted = " ●"
+
 func sName(name string) string {
-	return name[len(lpre):]
+	name = name[len(lpre):]
+	// Remove highlighting.
+	if strings.HasSuffix(name, highlighted) {
+		name = name[:len(name)-len(highlighted)]
+	}
+	return name
 }
 
 func (s *state) chSel() *selection {
@@ -175,7 +193,7 @@ func (s *state) sameDirect() bool {
 }
 
 func (s *state) addNewUser(name, nkey string) *user {
-	u := &user{name, nkey, nil, time.Now()}
+	u := &user{name, nkey, nil, time.Now(), 0, false}
 	s.users[nkey] = u
 
 	du := s.dms[u.name]

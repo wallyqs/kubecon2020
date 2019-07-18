@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"log"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -64,9 +65,6 @@ func (s *state) setupNATS(nc *nats.Conn, creds, name string) {
 
 	// Set our status to online.
 	s.sendFirstOnlineStatus()
-
-	// Show ourselves on the DM list.
-	s.addNewUser(s.name, s.me.Subject)
 }
 
 const maxNameLen = 8
@@ -126,7 +124,8 @@ func (s *state) processUserUpdate(m *nats.Msg) {
 	if u == nil {
 		u = s.addNewUser(userClaim.Name, userClaim.Subject)
 		s.ui.Update(func() {
-			s.direct.AddItems(dName(u.name))
+			u.disp = s.direct.Length()
+			s.direct.AddItems(dName(u))
 		})
 	}
 	u.last = time.Now()
@@ -203,7 +202,6 @@ func (s *state) processNewDM(m *nats.Msg) {
 	}
 
 	s.Lock()
-	defer s.Unlock()
 
 	// We don't allow DMs from new users. We should know the user already.
 	u := s.users[post.Issuer]
@@ -212,12 +210,33 @@ func (s *state) processNewDM(m *nats.Msg) {
 	}
 	u.posts = append(u.posts, post)
 
+	// snapshot
+	ui := s.ui
+	msgs := s.msgs
+	selected := s.cur.kind == direct && s.cur.name == u.name
+	s.Unlock()
+
 	// Update display if we are currently being viewed.
-	if s.cur.kind == direct && s.cur.name == u.name {
-		s.ui.Update(func() {
-			s.msgs.AppendRow(s.postEntry(post))
+	if selected {
+		ui.Update(func() {
+			msgs.AppendRow(s.postEntry(post))
+		})
+	} else {
+		ui.Update(func() {
+			s.updateNewMsgState(u.name, true)
 		})
 	}
+}
+
+func (s *state) userListSorted() []*user {
+	users := make([]*user, 0, len(s.users))
+	for _, u := range s.users {
+		users = append(users, u)
+	}
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].disp < users[j].disp
+	})
+	return users
 }
 
 // Lock should be held.

@@ -16,6 +16,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/marcusolsson/tui-go"
@@ -23,12 +24,9 @@ import (
 
 func (s *state) setupUI() tui.UI {
 	s.channels = tui.NewList()
-	s.channels.AddItems(dName("OSCON"), dName("NATS"), dName("General"))
+	s.channels.AddItems(chName("OSCON"), chName("NATS"), chName("General"))
 
 	s.direct = tui.NewList()
-	for name := range s.dms {
-		s.direct.AddItems(dName(name))
-	}
 
 	sidebar := tui.NewVBox(
 		tui.NewLabel(" CHANNELS"),
@@ -101,24 +99,7 @@ func (s *state) setupUI() tui.UI {
 		s.direct.SetFocused(false)
 		s.input.SetFocused(true)
 	})
-	s.direct.OnSelectionChanged(func(l *tui.List) {
-		s.Lock()
-		defer s.Unlock()
-		if s.sameDirect() {
-			if s.cur.index == 0 {
-				s.direct.SetSelected(-1)
-				s.direct.SetFocused(false)
-				s.channels.SetFocused(true)
-				s.channels.SetSelected(s.channels.Length() - 1)
-				s.setPostsDisplay(s.chSel())
-			}
-			return
-		}
-		if s.direct.Selected() >= 0 {
-			s.setPostsDisplay(s.dmSel())
-			s.channels.SetSelected(-1)
-		}
-	})
+	s.direct.OnSelectionChanged(s.dmSelChanged)
 
 	s.selectFirstChannel()
 
@@ -142,8 +123,65 @@ func (s *state) setupUI() tui.UI {
 		}
 	})
 
+	// Show ourselves on the DM list.
+	u := s.addNewUser(s.name, s.me.Subject)
+	s.direct.AddItems(dName(u))
+
 	s.ui = ui
 	return ui
+}
+
+// Lock should not be held.
+func (s *state) updateNewMsgState(uname string, on bool) {
+	s.Lock()
+	directL := s.direct
+	users := s.userListSorted()
+	selIndex := directL.Selected()
+	directL.OnSelectionChanged(nil)
+	directL.RemoveItems()
+
+	for _, user := range users {
+		name := dName(user)
+		if strings.Contains(uname, user.name) {
+			if on {
+				if !strings.HasSuffix(name, highlighted) {
+					name = name + highlighted
+					user.nmsgs = true
+				}
+			} else {
+				user.nmsgs = false
+				name = dName(user)
+			}
+		}
+		directL.AddItems(name)
+	}
+	directL.Select(selIndex)
+	s.Unlock()
+	directL.OnSelectionChanged(s.dmSelChanged)
+}
+
+func (s *state) dmSelChanged(l *tui.List) {
+	s.Lock()
+	defer s.Unlock()
+	if s.sameDirect() {
+		if s.cur.index == 0 {
+			s.direct.SetSelected(-1)
+			s.direct.SetFocused(false)
+			s.channels.SetFocused(true)
+			s.channels.SetSelected(s.channels.Length() - 1)
+			s.setPostsDisplay(s.chSel())
+		}
+		return
+	}
+	if s.direct.Selected() >= 0 {
+		s.setPostsDisplay(s.dmSel())
+		s.channels.SetSelected(-1)
+		if strings.HasSuffix(s.direct.SelectedItem(), highlighted) {
+			s.Unlock()
+			s.updateNewMsgState(s.cur.name, false)
+			s.Lock()
+		}
+	}
 }
 
 func postUser(u string) string {
