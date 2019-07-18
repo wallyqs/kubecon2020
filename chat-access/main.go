@@ -48,6 +48,7 @@ func main() {
 	var accFile = flag.String("acc", "", "Account JWT File")
 	var skFile = flag.String("sk", "", "Account Signing Key")
 	var appCreds = flag.String("creds", "", "App Credentials File")
+	var sid = flag.String("sid", "<undisclosed>", "Server ID, e.g. AWS/West")
 
 	log.SetFlags(0)
 	flag.Usage = usage
@@ -82,7 +83,7 @@ func main() {
 		}
 		reqName := simpleName(m.Data)
 		log.Printf("Registered %q [%q]\n", reqName, m.Data)
-		creds := generateUserCreds(acc, sk, reqName)
+		creds := generateUserCreds(acc, sk, reqName, *sid)
 		m.Respond([]byte(creds))
 	})
 
@@ -118,9 +119,9 @@ const (
 	usagePub  = "ngs.usage"
 
 	credsT = `
------BEGIN NGS CHAT DEMO USER JWT-----
+-------BEGIN NGS CHAT DEMO USER JWT-------
 %s
-------END NGS CHAT DEMO USER JWT------
+--------END NGS CHAT DEMO USER JWT--------
 
 ************************* IMPORTANT *************************
 Private NKEYs are sensitive and should be treated as secrets.
@@ -130,6 +131,9 @@ Private NKEYs are sensitive and should be treated as secrets.
 ------END USER PRIVATE KEY------
 
 *************************************************************
+
+# Provisioned by NATS team
+# Server ID/LOC: %q
 `
 )
 
@@ -140,7 +144,7 @@ func createNewUserKeys() (string, []byte) {
 	return pub, priv
 }
 
-func generateUserCreds(acc *jwt.AccountClaims, akp nkeys.KeyPair, name string) string {
+func generateUserCreds(acc *jwt.AccountClaims, akp nkeys.KeyPair, name, sid string) string {
 	pub, priv := createNewUserKeys()
 	nuc := jwt.NewUserClaims(pub)
 	nuc.Name = name
@@ -161,7 +165,7 @@ func generateUserCreds(acc *jwt.AccountClaims, akp nkeys.KeyPair, name string) s
 		log.Printf("Error generating user JWT: %v", err)
 		return "-ERR 'Internal Error'"
 	}
-	return fmt.Sprintf(credsT, ujwt, priv)
+	return fmt.Sprintf(credsT, ujwt, priv, sid)
 }
 
 // For demo, first name, max 8 chars and all lower case.
