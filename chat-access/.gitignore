@@ -1,5 +1,6 @@
 *.creds
 *.conf
+*.nk
 
 # Emacs
 *~

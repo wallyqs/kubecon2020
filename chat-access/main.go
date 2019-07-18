@@ -114,6 +114,8 @@ const (
 	postsSub  = preSub + "posts.*"
 	dmsPub    = preSub + "dms.*"
 	dmsSub    = preSub + "dms.%s"
+	inboxSub  = "_INBOX.>"
+	usagePub  = "ngs.usage"
 
 	credsT = `
 -----BEGIN NGS CHAT DEMO USER JWT-----
@@ -146,11 +148,13 @@ func generateUserCreds(acc *jwt.AccountClaims, akp nkeys.KeyPair, name string) s
 	nuc.Limits.Payload = maxMsgSize
 
 	// Can listen for DMs, but only to ones to ourselves.
-	pubAllow := jwt.StringList{onlineSub, postsSub, dmsPub}
-	subAllow := jwt.StringList{onlineSub, postsSub, fmt.Sprintf(dmsSub, pub)}
+	pubAllow := jwt.StringList{onlineSub, postsSub, dmsPub, usagePub}
+	subAllow := jwt.StringList{onlineSub, postsSub, fmt.Sprintf(dmsSub, pub), inboxSub}
 
 	nuc.Permissions.Pub.Allow = pubAllow
 	nuc.Permissions.Sub.Allow = subAllow
+
+	nuc.IssuerAccount = acc.Subject
 
 	ujwt, err := nuc.Encode(akp)
 	if err != nil {

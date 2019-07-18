@@ -15,6 +15,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -100,7 +101,7 @@ func main() {
 			}
 			log.Fatalf("%v for request", err)
 		}
-		log.Printf("%s\n", msg.Data)
+		fmt.Printf("%s\n", msg.Data)
 	default:
 		subj, msg := args[0], []byte(args[1])
 		nc.Publish(subj, msg)
@@ -110,7 +111,9 @@ func main() {
 		}
 	}
 
-	runtime.Goexit()
+	if exeType == subExe {
+		runtime.Goexit()
+	}
 }
 
 func printMsg(m *nats.Msg, i int) {

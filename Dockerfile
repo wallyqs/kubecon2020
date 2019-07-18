@@ -31,17 +31,17 @@ RUN strip /go/bin/*
 
 FROM alpine:3.10
 
-RUN addgroup -S nats && adduser -S -G nats nats
-
 RUN apk add -U --no-cache ca-certificates
 
 COPY --from=builder /go/bin/* /usr/local/bin/
 RUN cd /usr/local/bin/ && ln -s nats-util nats-pub && ln -s nats-util nats-sub && ln -s nats-util nats-req
 
-WORKDIR /home/nats
-USER nats
+WORKDIR /root
 
 COPY .profile $WORKDIR
-COPY ngs.creds $WORKDIR
+COPY .creds $WORKDIR
+COPY README.md $WORKDIR
+
+USER root
 
 ENTRYPOINT ["/bin/sh", "-l"]
