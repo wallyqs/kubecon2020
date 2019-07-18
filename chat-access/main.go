@@ -119,9 +119,9 @@ const (
 	usagePub  = "ngs.usage"
 
 	credsT = `
--------BEGIN NGS CHAT DEMO USER JWT-------
+-----BEGIN NATS USER JWT-----
 %s
---------END NGS CHAT DEMO USER JWT--------
+------END NATS USER JWT------
 
 ************************* IMPORTANT *************************
 Private NKEYs are sensitive and should be treated as secrets.
