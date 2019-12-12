@@ -106,7 +106,7 @@ func main() {
 // Some limits for our auto-provisioned users.
 const (
 	maxMsgSize = 1024
-	validFor   = 24 * time.Hour
+	validFor   = 365 * 24 * time.Hour
 
 	// Should match ngs-chat versions.
 	audience  = "OSCON-DEMO"
