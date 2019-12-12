@@ -24,7 +24,7 @@ To get our broader permissions we will use `nats-req` to send a secure request a
 The request to `chat.req.access` will be the username you want to use for the chat application, e.g. derek. We will direct the credentials to a file.
 
 ```
-> nats-req chat.req.access name > chat.creds
+> nats-req chat.req.access <NAME> > chat.creds
 ```
 
 You can inspect these permissions with the `nsc` tool.
@@ -35,5 +35,5 @@ You can inspect these permissions with the `nsc` tool.
 When running the chat application, our mini Slack clone, you will enter msgs and press enter to send. <TAB\> will move you to select a new channel or to DM others that are online.
 
 ```
-> chat -creds chat.creds
+> chat -creds chat.creds 
 ```
