@@ -33,7 +33,7 @@ func showUsageAndExit(exitcode int) {
 }
 
 func main() {
-	var server = flag.String("s", "connect.ngs.global", "NATS System")
+	var server = flag.String("s", "localhost", "NATS System")
 	var name = flag.String("n", "", "Override Chat Name")
 	var userCreds = flag.String("creds", "", "User Credentials File")
 
@@ -51,7 +51,7 @@ func main() {
 
 	// Connect to NATS system
 	log.Print("Connecting to NATS system")
-	opts := []nats.Option{nats.Name("OSCON Chat")}
+	opts := []nats.Option{nats.Name("KUBECON NATS Chat")}
 	opts = setupConnOptions(opts)
 	opts = append(opts, nats.UserCredentials(*userCreds))
 

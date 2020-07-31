@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	audience  = "OSCON-DEMO"
-	preSub    = "chat.OSCON2019."
+	audience  = "KUBECON"
+	preSub    = "chat.KUBECON."
 	onlineSub = preSub + "online"
 	postsSub  = preSub + "posts.*"
 	postsPub  = preSub + "posts.%s"

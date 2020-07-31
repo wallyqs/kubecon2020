@@ -74,7 +74,7 @@ type postClaim struct {
 
 // Fixed channels for now. Not hard to allow creating new ones.
 func (s *state) pre() {
-	s.posts["OSCON"] = []*postClaim{}
+	s.posts["KUBECON"] = []*postClaim{}
 	s.posts["NATS"] = []*postClaim{}
 	s.posts["General"] = []*postClaim{}
 }

@@ -24,7 +24,7 @@ import (
 
 func (s *state) setupUI() tui.UI {
 	s.channels = tui.NewList()
-	s.channels.AddItems(chName("OSCON"), chName("NATS"), chName("General"))
+	s.channels.AddItems(chName("KUBECON"), chName("NATS"), chName("General"))
 
 	s.direct = tui.NewList()
 
