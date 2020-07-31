@@ -1,4 +1,4 @@
-// Copyright 2019 The NATS Authors
+// Copyright 2019-2020 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -39,7 +39,7 @@ func usage(exeType int) {
 }
 
 func main() {
-	var urls = flag.String("s", "connect.ngs.global", "The NATS System")
+	var urls = flag.String("s", "localhost", "The NATS System")
 	var userCreds = flag.String("creds", "", "User Credentials File")
 	var showTime = flag.Bool("t", false, "Display timestamps")
 	var showHelp = flag.Bool("h", false, "Show help message")

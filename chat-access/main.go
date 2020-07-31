@@ -108,7 +108,7 @@ const (
 	maxMsgSize = 1024
 	validFor   = 365 * 24 * time.Hour
 
-	// Should match ngs-chat versions.
+	// Should match chat versions.
 	audience  = "KUBECON"
 	preSub    = "chat.KUBECON."
 	onlineSub = preSub + "online"
