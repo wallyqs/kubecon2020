@@ -1,4 +1,4 @@
-// Copyright 2019 The NATS Authors
+// Copyright 2019-2020 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -29,7 +29,7 @@ import (
 )
 
 func usage() {
-	log.Printf("Usage: chat-access [-s server] [-acc acc-jwt-file] [-sk signing-key-file]\n")
+	log.Printf("Usage: chat-access [-s server] [-acc acc-jwt-file] [-sk signing-key-file] [-creds creds] [-sid label]\n")
 }
 
 func showUsageAndExit(exitcode int) {
@@ -39,12 +39,12 @@ func showUsageAndExit(exitcode int) {
 
 const (
 	reqSubj    = "chat.req.access"
-	reqGroup   = "oscon"
+	reqGroup   = "kubecon"
 	maxNameLen = 8
 )
 
 func main() {
-	var server = flag.String("s", "connect.ngs.global", "NATS System")
+	var server = flag.String("s", "localhost", "NATS System")
 	var accFile = flag.String("acc", "", "Account JWT File")
 	var skFile = flag.String("sk", "", "Account Signing Key")
 	var appCreds = flag.String("creds", "", "App Credentials File")
@@ -58,7 +58,7 @@ func main() {
 		showUsageAndExit(1)
 	}
 
-	opts := []nats.Option{nats.Name("OSCON Chat-Access")}
+	opts := []nats.Option{nats.Name("KubeCon Chat-Access")}
 	opts = setupConnOptions(opts)
 	if *appCreds != "" {
 		opts = append(opts, nats.UserCredentials(*appCreds))
@@ -108,15 +108,14 @@ const (
 	maxMsgSize = 1024
 	validFor   = 365 * 24 * time.Hour
 
-	// Should match ngs-chat versions.
-	audience  = "OSCON-DEMO"
-	preSub    = "chat.OSCON2019."
+	// Should match chat versions.
+	audience  = "KUBECON"
+	preSub    = "chat.KUBECON."
 	onlineSub = preSub + "online"
 	postsSub  = preSub + "posts.*"
 	dmsPub    = preSub + "dms.*"
 	dmsSub    = preSub + "dms.%s"
 	inboxSub  = "_INBOX.>"
-	usagePub  = "ngs.usage"
 
 	credsT = `
 -----BEGIN NATS USER JWT-----
@@ -152,7 +151,7 @@ func generateUserCreds(acc *jwt.AccountClaims, akp nkeys.KeyPair, name, sid stri
 	nuc.Limits.Payload = maxMsgSize
 
 	// Can listen for DMs, but only to ones to ourselves.
-	pubAllow := jwt.StringList{onlineSub, postsSub, dmsPub, usagePub}
+	pubAllow := jwt.StringList{onlineSub, postsSub, dmsPub}
 	subAllow := jwt.StringList{onlineSub, postsSub, fmt.Sprintf(dmsSub, pub), inboxSub}
 
 	nuc.Permissions.Pub.Allow = pubAllow

@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	audience  = "OSCON-DEMO"
-	preSub    = "chat.OSCON2019."
+	audience  = "KUBECON"
+	preSub    = "chat.KUBECON."
 	onlineSub = preSub + "online"
 	postsSub  = preSub + "posts.*"
 	postsPub  = preSub + "posts.%s"
@@ -93,7 +93,7 @@ func (s *state) sendOnlineStatus(first bool) {
 	online := jwt.NewGenericClaims(s.me.Subject)
 	online.Name = s.name
 	online.Expires = time.Now().Add(onlineInterval).UTC().Unix() // 1 minute from now
-	online.Type = jwt.ClaimType("ngs-chat-online")
+	online.Type = jwt.ClaimType("chat-online")
 	if first {
 		online.Tags.Add("new")
 	}

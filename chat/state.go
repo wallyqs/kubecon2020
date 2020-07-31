@@ -74,7 +74,7 @@ type postClaim struct {
 
 // Fixed channels for now. Not hard to allow creating new ones.
 func (s *state) pre() {
-	s.posts["OSCON"] = []*postClaim{}
+	s.posts["KUBECON"] = []*postClaim{}
 	s.posts["NATS"] = []*postClaim{}
 	s.posts["General"] = []*postClaim{}
 }
@@ -96,9 +96,9 @@ func (s *state) newPost(msg string) *postClaim {
 	newPost.Name = s.name
 	newPost.Data["msg"] = msg
 	if s.cur.kind == direct {
-		newPost.Type = jwt.ClaimType("ngs-chat-dm")
+		newPost.Type = jwt.ClaimType("chat-dm")
 	} else {
-		newPost.Type = jwt.ClaimType("ngs-chat-post")
+		newPost.Type = jwt.ClaimType("chat-post")
 	}
 	return newPost
 }
