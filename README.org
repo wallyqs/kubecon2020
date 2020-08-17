@@ -135,7 +135,10 @@ go run main.go --acc $NSC_HOME/nats/KO/accounts/KUBECON/KUBECON.jwt \
 ** Getting some credentials
 
 #+begin_src 
-nats-req -creds nsc/nkeys/creds/KO/KUBECON/chat-creds-request.creds chat.req.access wallyqs
+cd chat
+nats-req -creds nsc/nkeys/creds/KO/KUBECON/chat-creds-request.creds chat.req.access wallyqs 2> my.creds
+go build ./...
+./chat -creds my.creds
 #+end_src
 
 * Deploying to K8S: Infra setup
