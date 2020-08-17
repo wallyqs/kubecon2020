@@ -1,0 +1,322 @@
+#+TITLE: Tutorial: Building Secure & Decentralized Global Applications on Kubernetes with NATS
+
+/KubeCon 2020: NATS Tutorial/
+
+[NATS](https://nats.io) is a simple, secure and performant communications system 
+for digital systems, services and devices. NATS is a hosted project in the 
+Cloud Native Computing Foundation ([[https://cncf.io][CNCF]]). NATS has over
+[[https://nats.io/download/][30 client language implementations]], and the NATS Server
+can run on-premise, in the cloud, at the edge, and even on a Raspberry Pi. 
+NATS can secure and simplify design and operation of modern distributed systems.
+
+Learn how to build applications that span across more than one Kubernetes region by using a NATS based global communications network. 
+In this talk, it will be covered how to setup a globally available NATS cluster using multiple Kubernetes regions using NATS gateways and leafnode connections, as well as how to create applications that take advantage of the NATS decentralized authorization model by showing how to implement a simple Slack-like clone that runs under your terminal.
+
+* Checkout the repo
+
+Follow along with this repo: https://github.com/wallyqs/kubecon2020
+
+#+begin_src sh
+git clone https://github.com/wallyqs/kubecon2020
+#+end_src
+
+* Setup decentralized auth
+
+** Installing NSC
+
+#+begin_src 
+curl -LO https://raw.githubusercontent.com/nats-io/nsc/master/install.sh
+less install.sh
+sh ./install.sh
+#+end_src
+
+** Initialize NSC
+
+#+begin_src sh
+curl -fSl https://nats-io.github.io/k8s/setup/nsc-setup.sh | sh
+#+end_src
+
+** Inspect NSC objects
+
+#+begin_src sh
+tree nsc/ | less
+nsc describe jwt -f nsc/accounts/nats/KO/KO.jwt 
+#+end_src
+
+** Creating the KUBECON account
+
+- We need 3 users at least:
+  + Chat Credentials Requestor
+  + Credentials Provisioner
+  + Chat User :: Will be dynamically generated
+
+#+begin_src sh
+nsc add account --name KUBECON
+nsc list accounts
+nsc describe jwt -f ./nsc/accounts/nats/KO/accounts/KUBECON/KUBECON.jwt
+#+end_src
+
+** Add a new signing key for KUBECON account
+
+This is needed to be able to create users dynamically by the credentials provisioner.
+
+#+begin_src sh
+nsc generate nkey --account --store 
+nsc edit account --sk ACUIKNKJIAPABWJSIJM4GFYLQLL7RUWEBI2BIZYUINPWV5432ZOAEDV4
+nsc describe jwt -f ./nsc/accounts/nats/KO/accounts/KUBECON/KUBECON.jwt
+#+end_src
+
+** Create user for the credentials provisioner
+
+#+begin_src 
+nsc add user chat-access \
+   -K $NKEYS_PATH/keys/A/AO/AAOEOFBQCJKEJ7XZLLSHKVCERH34OPZOIJMOUUVW7QKESQ2KT33JZDRI.nk \
+   --allow-sub 'chat.req.access' \
+   --allow-pubsub '_INBOX.>' \
+   --allow-pubsub '_R_' \
+   --allow-pubsub '_R_.>'
+
+nsc describe jwt -f $NKEYS_PATH/creds/KO/KUBECON/chat-access.creds
+#+end_src
+
+** Create user for the credentials request
+
+#+begin_src 
+nsc add user chat-creds-request \
+   -K $NKEYS_PATH/keys/A/AO/AAOEOFBQCJKEJ7XZLLSHKVCERH34OPZOIJMOUUVW7QKESQ2KT33JZDRI.nk \
+   --allow-pub 'chat.req.access' \
+   --allow-pubsub '_INBOX.>' \
+   --allow-pubsub '_R_' \
+   --allow-pubsub '_R_.>'
+
+nsc describe jwt -f $NKEYS_PATH/creds/KO/KUBECON/chat-creds-request.creds
+#+end_src
+
+** Confirm setup locally
+
+Generate the NATS configuration.
+
+#+begin_src sh :results output
+source .nsc.env 
+nsc list accounts
+nsc generate config --mem-resolver --sys-account SYS
+nsc generate config --mem-resolver --sys-account SYS > conf/resolver.conf
+#+end_src
+
+Start the NATS Server:
+
+#+begin_src sh
+nats-server -c conf/resolver.conf
+#+end_src
+
+Try to make a request:
+
+#+begin_src 
+nats-req -creds nsc/nkeys/creds/KO/KUBECON/chat-creds-request.creds chat.req.access example
+#+end_src
+
+Create a mock responder:
+
+#+begin_src sh
+nats-rply -creds nsc/nkeys/creds/KO/KUBECON/chat-access.creds chat.req.access example
+#+end_src
+
+* Using the Chat Application
+
+** Running the provisioner
+
+#+begin_src 
+go run main.go --acc $NSC_HOME/nats/KO/accounts/KUBECON/KUBECON.jwt \
+    --sk $NKEYS_PATH/keys/A/AO/AAOEOFBQCJKEJ7XZLLSHKVCERH34OPZOIJMOUUVW7QKESQ2KT33JZDRI.nk \
+    --creds $NKEYS_PATH/creds/KO/KUBECON/chat-access.creds  
+#+end_src
+
+** Getting some credentials
+
+#+begin_src 
+nats-req -creds nsc/nkeys/creds/KO/KUBECON/chat-creds-request.creds chat.req.access wallyqs
+#+end_src
+
+* Deploying to K8S: Infra setup
+
+** Creating K8S clusters for NATS
+
+You can find info here:
+
+https://docs.nats.io/nats-on-kubernetes/super-cluster-on-digital-ocean
+
+Let's create 3 clusters in Digital Ocean:
+
+#+begin_src sh
+doctl kubernetes cluster create nats-k8s-sfo2 --count 3 --region sfo2
+doctl kubernetes cluster create nats-k8s-sgp1 --count 3 --region sgp1
+doctl kubernetes cluster create nats-k8s-ams3 --count 3 --region ams3
+#+end_src
+
+** Open up the firewall for the required ports
+
+- 4222 is the client port
+- 7422 is the port for leafnodes
+- 7522 is the port for gateway connections (cluster of clusters)
+
+#+begin_src sh
+for firewall in `doctl compute firewall list | tail -n 3 | awk '{print $1}'`; do
+  doctl compute firewall add-rules $firewall --inbound-rules protocol:tcp,ports:4222,address:0.0.0.0/0
+  doctl compute firewall add-rules $firewall --inbound-rules protocol:tcp,ports:7422,address:0.0.0.0/0
+  doctl compute firewall add-rules $firewall --inbound-rules protocol:tcp,ports:7522,address:0.0.0.0/0
+done
+#+end_src
+
+* Deploying NATS to a K8S Cluster
+
+** Add Helm NATS repos
+
+#+begin_src 
+brew install helm
+helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+helm repo update   
+#+end_src
+
+** Upload the memory resolver with the NATS accounts
+
+#+begin_src sh
+for ctx in do-ams3-nats-k8s-ams3 do-sfo2-nats-k8s-sfo2 do-sgp1-nats-k8s-sgp1; do
+  kubectl --context $ctx create cm nats-accounts --from-file conf/resolver.conf
+  # kubectl --context $ctx delete cm nats-accounts
+done   
+#+end_src
+
+** Configure gateway connections
+
+Using explicit URL endpoints though we could use external-dns instead for this:
+
+#+begin_src sh :results output
+for ctx in do-ams3-nats-k8s-ams3 do-sgp1-nats-k8s-sgp1 do-sfo2-nats-k8s-sfo2; do
+  echo "    - name: $ctx"
+  echo "      urls:"
+  for externalIP in `kubectl --context $ctx get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="ExternalIP")].address}'`; do 
+    echo "        - nats://$externalIP:7522"; 
+  done
+  echo
+done   
+#+end_src
+
+#+begin_example
+    - name: do-ams3-nats-k8s-ams3
+      urls:
+        - nats://164.90.192.194:7522
+        - nats://164.90.192.226:7522
+        - nats://164.90.192.80:7522
+
+    - name: do-sgp1-nats-k8s-sgp1
+      urls:
+        - nats://188.166.236.158:7522
+        - nats://188.166.232.25:7522
+        - nats://188.166.236.155:7522
+
+    - name: do-sfo2-nats-k8s-sfo2
+      urls:
+        - nats://64.227.50.254:7522
+        - nats://64.227.54.26:7522
+        - nats://138.197.219.203:7522
+
+#+end_example
+
+** Super Cluster YAML
+
+#+begin_src yaml :tangle conf/super-cluster.yaml
+nats:
+  image: nats:alpine
+
+  # Bind a host port from the host for each one of the pods.
+  externalAccess: true
+
+  logging:
+    debug: false
+    trace: false
+
+cluster:
+  enabled: true
+
+auth:
+  enabled: true
+
+  resolver:
+    ############################
+    #                          #
+    # Memory resolver settings #
+    #                          #
+    ##############################
+    type: memory
+
+    # 
+    # Use a configmap reference which will be mounted
+    # into the container.
+    # 
+    configMap:
+      name: nats-accounts
+      key: resolver.conf
+
+gateway:
+  enabled: true
+
+  # NOTE: defined via --set gateway.name="$ctx"
+  # name: $ctx
+
+  gateways:
+    - name: do-ams3-nats-k8s-ams3
+      urls:
+        - nats://164.90.192.194:7522
+        - nats://164.90.192.226:7522
+        - nats://164.90.192.80:7522
+
+    - name: do-sgp1-nats-k8s-sgp1
+      urls:
+        - nats://188.166.236.158:7522
+        - nats://188.166.232.25:7522
+        - nats://188.166.236.155:7522
+
+    - name: do-sfo2-nats-k8s-sfo2
+      urls:
+        - nats://64.227.50.254:7522
+        - nats://64.227.54.26:7522
+        - nats://138.197.219.203:7522
+
+natsbox:
+  enabled: true   
+#+end_src
+
+#+begin_src sh
+for ctx in do-ams3-nats-k8s-ams3  do-sfo2-nats-k8s-sfo2 do-sgp1-nats-k8s-sgp1; do
+  helm --kube-context $ctx install nats nats/nats -f conf/super-cluster.yaml --set gateway.name=$ctx
+  # helm --kube-context $ctx delete nats
+done
+#+end_src
+
+** Confirm the setup
+
+- Peek at the connect_urls and confirm that the routes are present.
+
+#+begin_src 
+telnet 188.166.232.25 4222
+#+end_src
+
+Try to make a request from SF:
+
+#+begin_src 
+nats-req -s 138.197.219.203 -creds nsc/nkeys/creds/KO/KUBECON/chat-creds-request.creds chat.req.access example
+#+end_src
+
+Create a mock responder in AMS:
+
+#+begin_src sh
+nats-rply -s 164.90.192.226 -creds nsc/nkeys/creds/KO/KUBECON/chat-access.creds chat.req.access example
+#+end_src
+
+* Using the System account
+
+#+begin_src sh
+nats-sub -s 188.166.236.158 -creds ./nsc/nkeys/creds/KO/SYS/sys.creds '>'  
+#+end_src
+
+
