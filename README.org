@@ -192,7 +192,7 @@ done
 
 ** Configure gateway connections
 
-Using explicit URL endpoints though we could use external-dns instead for this:
+Using explicit URL endpoints though we could use [[https://github.com/kubernetes-sigs/external-dns][external-dns]] instead for this:
 
 #+begin_src sh :results output
 for ctx in do-ams3-nats-k8s-ams3 do-sgp1-nats-k8s-sgp1 do-sfo2-nats-k8s-sfo2; do
