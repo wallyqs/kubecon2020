@@ -126,6 +126,7 @@ nats-rply -creds nsc/nkeys/creds/KO/KUBECON/chat-access.creds chat.req.access ex
 ** Running the provisioner
 
 #+begin_src 
+cd chat-access
 go run main.go --acc $NSC_HOME/nats/KO/accounts/KUBECON/KUBECON.jwt \
     --sk $NKEYS_PATH/keys/A/AO/AAOEOFBQCJKEJ7XZLLSHKVCERH34OPZOIJMOUUVW7QKESQ2KT33JZDRI.nk \
     --creds $NKEYS_PATH/creds/KO/KUBECON/chat-access.creds  
