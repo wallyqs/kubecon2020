@@ -189,7 +189,6 @@ for ctx in do-ams3-nats-k8s-ams3 do-sgp1-nats-k8s-sgp1 do-sfo2-nats-k8s-sfo2; do
 done   
 #+end_src
 
-#+RESULTS:
 #+begin_example
     - name: do-ams3-nats-k8s-ams3
       urls:
