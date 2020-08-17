@@ -2,7 +2,7 @@
 
 /KubeCon 2020: NATS Tutorial/
 
-[NATS](https://nats.io) is a simple, secure and performant communications system 
+[[https://nats.io][NATS]] is a simple, secure and performant communications system 
 for digital systems, services and devices. NATS is a hosted project in the 
 Cloud Native Computing Foundation ([[https://cncf.io][CNCF]]). NATS has over
 [[https://nats.io/download/][30 client language implementations]], and the NATS Server
