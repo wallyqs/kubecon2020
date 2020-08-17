@@ -132,7 +132,7 @@ go run main.go --acc $NSC_HOME/nats/KO/accounts/KUBECON/KUBECON.jwt \
     --creds $NKEYS_PATH/creds/KO/KUBECON/chat-access.creds  
 #+end_src
 
-** Getting some credentials
+** Getting some credentials and starting the app
 
 #+begin_src 
 cd chat
